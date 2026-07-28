@@ -1,0 +1,263 @@
+name: techm
+
+x-service: &service
+  build:
+    context: .
+    dockerfile: packages/python-service-kit/Dockerfile
+  profiles: [services]
+  restart: unless-stopped
+  environment: &service-env
+    TECHM_ENV: ${TECHM_ENV:-local}
+    TECHM_JWT_ISSUER: ${TECHM_JWT_ISSUER:-http://keycloak:8080/realms/techm}
+    TECHM_JWT_AUDIENCE: ${TECHM_JWT_AUDIENCE:-techm-api}
+    TECHM_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    TECHM_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  depends_on:
+    kafka: {condition: service_healthy}
+    keycloak: {condition: service_started}
+  networks: [techm]
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+    interval: 10s
+    timeout: 3s
+    retries: 10
+
+x-postgres: &postgres
+  image: postgres:16-alpine
+  profiles: [services]
+  restart: unless-stopped
+  environment:
+    POSTGRES_USER: ${POSTGRES_USER:-techm}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-techm-change-me}
+  networks: [techm]
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-techm}"]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+
+services:
+  gateway:
+    image: traefik:v3.3
+    profiles: [core]
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --api.dashboard=true
+    ports: ["8080:80"]
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+    networks: [techm]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    profiles: [core]
+    command: ["start-dev", "--import-realm", "--health-enabled=true"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-local-admin-change-me}
+    ports: ["8081:8080"]
+    volumes:
+      - ./infra/keycloak/realm-techm.json:/opt/keycloak/data/import/realm-techm.json:ro
+    networks: [techm]
+
+  kafka:
+    image: bitnami/kafka:3.9
+    profiles: [core]
+    environment:
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+    networks: [techm]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.8.0
+    profiles: [core]
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+    depends_on:
+      kafka: {condition: service_healthy}
+    networks: [techm]
+
+  redis:
+    image: redis:7.4-alpine
+    profiles: [core]
+    command: ["redis-server", "--appendonly", "yes"]
+    networks: [techm]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-02-07T23-21-09Z
+    profiles: [core]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-techm-local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-minio-change-me}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio_data:/data]
+    networks: [techm]
+
+  identity-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: identity_db}
+    volumes: [identity_db:/var/lib/postgresql/data]
+  seller-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: seller_db}
+    volumes: [seller_db:/var/lib/postgresql/data]
+  catalog-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: catalog_db}
+    volumes: [catalog_db:/var/lib/postgresql/data]
+  inventory-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: inventory_db}
+    volumes: [inventory_db:/var/lib/postgresql/data]
+  commerce-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: commerce_db}
+    volumes: [commerce_db:/var/lib/postgresql/data]
+  finance-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: finance_db}
+    volumes: [finance_db:/var/lib/postgresql/data]
+  trust-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: trust_db}
+    volumes: [trust_db:/var/lib/postgresql/data]
+  integration-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: integration_db}
+    volumes: [integration_db:/var/lib/postgresql/data]
+  notification-db:
+    <<: *postgres
+    environment: {POSTGRES_USER: "${POSTGRES_USER:-techm}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local-techm-change-me}", POSTGRES_DB: notification_db}
+    volumes: [notification_db:/var/lib/postgresql/data]
+
+  identity: &domain-service
+    <<: *service
+    environment:
+      <<: *service-env
+      TECHM_SERVICE_NAME: identity
+      TECHM_DATABASE_URL: postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@identity-db/identity_db
+    depends_on:
+      identity-db: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.identity.rule=PathPrefix(`/api/identity`)
+      - traefik.http.middlewares.identity-strip.stripprefix.prefixes=/api/identity
+      - traefik.http.routers.identity.middlewares=identity-strip
+      - traefik.http.services.identity.loadbalancer.server.port=8000
+  seller:
+    <<: *service
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: seller, TECHM_DATABASE_URL: "postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@seller-db/seller_db"}
+    depends_on: {seller-db: {condition: service_healthy}, kafka: {condition: service_healthy}}
+  catalog:
+    <<: *service
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: catalog, TECHM_DATABASE_URL: "postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@catalog-db/catalog_db"}
+    depends_on: {catalog-db: {condition: service_healthy}, kafka: {condition: service_healthy}}
+  inventory:
+    <<: *service
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: inventory, TECHM_DATABASE_URL: "postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@inventory-db/inventory_db"}
+    depends_on: {inventory-db: {condition: service_healthy}, kafka: {condition: service_healthy}}
+  commerce:
+    <<: *service
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: commerce, TECHM_DATABASE_URL: "postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@commerce-db/commerce_db"}
+    depends_on: {commerce-db: {condition: service_healthy}, kafka: {condition: service_healthy}}
+  finance:
+    <<: *service
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: finance, TECHM_DATABASE_URL: "postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@finance-db/finance_db"}
+    depends_on: {finance-db: {condition: service_healthy}, kafka: {condition: service_healthy}}
+  trust:
+    <<: *service
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: trust, TECHM_DATABASE_URL: "postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@trust-db/trust_db"}
+    depends_on: {trust-db: {condition: service_healthy}, kafka: {condition: service_healthy}}
+  integration:
+    <<: *service
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: integration, TECHM_DATABASE_URL: "postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@integration-db/integration_db"}
+    depends_on: {integration-db: {condition: service_healthy}, kafka: {condition: service_healthy}}
+  notifications:
+    <<: *service
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: notifications, TECHM_DATABASE_URL: "postgresql://techm:${POSTGRES_PASSWORD:-local-techm-change-me}@notification-db/notification_db"}
+    depends_on: {notification-db: {condition: service_healthy}, kafka: {condition: service_healthy}}
+
+  opensearch:
+    image: opensearchproject/opensearch:2.19.0
+    profiles: [search]
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes: [opensearch_data:/usr/share/opensearch/data]
+    networks: [techm]
+  search:
+    <<: *service
+    profiles: [search]
+    environment: {<<: *service-env, TECHM_SERVICE_NAME: search, TECHM_DATABASE_URL: "opensearch://opensearch:9200"}
+    depends_on: {opensearch: {condition: service_started}, kafka: {condition: service_healthy}}
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    profiles: [demo]
+    ports: ["8025:8025"]
+    networks: [techm]
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    profiles: [tools]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: techm
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+    ports: ["8088:8080"]
+    networks: [techm]
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    profiles: [observability]
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks: [techm]
+  grafana:
+    image: grafana/grafana:11.5.1
+    profiles: [observability]
+    ports: ["3000:3000"]
+    networks: [techm]
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.119.0
+    profiles: [observability]
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./infra/observability/otel-collector.yml:/etc/otelcol/config.yml:ro
+    networks: [techm]
+
+networks:
+  techm:
+
+volumes:
+  minio_data:
+  identity_db:
+  seller_db:
+  catalog_db:
+  inventory_db:
+  commerce_db:
+  finance_db:
+  trust_db:
+  integration_db:
+  notification_db:
+  opensearch_data:

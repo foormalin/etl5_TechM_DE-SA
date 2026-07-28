@@ -2,9 +2,14 @@
   "name": "techm-prototype",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vite build && node scripts/build-server.mjs"
+    "build": "vite build && node scripts/build-server.mjs",
+    "check": "node tests/contract/validate-contracts.mjs && node --test tests/unit/*.test.mjs",
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:contracts": "node tests/contract/validate-contracts.mjs",
+    "test:smoke": "node tests/smoke/demo-worker.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",

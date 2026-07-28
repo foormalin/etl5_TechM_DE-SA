@@ -1,43 +1,71 @@
 # TechM — B2B IT Marketplace
 
-Кликабельный фронтенд-прототип B2B-маркетплейса IT-оборудования, разработанный по системной документации TechM.
+Учебный и портфельный B2B-маркетплейс IT-оборудования по системной документации
+TECHM-DOC-001…020. Репозиторий содержит два совместимых контура:
 
-## Возможности
+- `src`, `server`, `db` — лёгкая публичная demo-версия на React, Cloudflare Worker и D1;
+- `services`, `packages`, `infra`, `contracts` — целевая микросервисная архитектура
+  FastAPI/PostgreSQL/Kafka/Keycloak из документации.
 
-- кабинет покупателя: каталог, избранное, корзина, закупки, документы и жалобы;
-- кабинет продавца: товары, склады, заказы, финансы, подписка и интеграции;
-- операционный кабинет TechM: модерация, обращения, компании и аудит;
-- переключение рабочих ролей;
-- адаптивный монохромный интерфейс.
-
-## Запуск
+## Быстрый запуск demo
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Production-сборка:
+Проверка и production-сборка:
 
 ```bash
+pnpm check
 pnpm build
 ```
 
-Проект использует React, Vite, Lucide, Cloudflare Worker API и D1.
+## Полная локальная платформа
 
-## Backend API
+Требования: Docker Engine 25+ и Docker Compose v2.
 
-- `GET /api/health` — состояние API и базы данных;
-- `GET /api/session` — текущий пользователь, роль и компания;
-- `GET /api/catalog` — опубликованные предложения с актуальным остатком;
-- `GET /api/cart`, `PUT /api/cart/:listingId` — корпоративная корзина;
-- `POST /api/checkout` — идемпотентное создание закупки и заказов;
-- `POST /api/complaints` — обращение по подтверждённой закупке;
-- `PATCH /api/orders/:id` — переход заказа по разрешённой state machine;
-- `GET /api/admin/audit` — журнал действий для роли TechM.
+```bash
+copy .env.example .env
+docker compose --profile core --profile services --profile demo up --build
+```
 
-Роль передаётся заголовком `X-TechM-Role`: `buyer`, `seller` или `admin`.
-Checkout требует заголовок `Idempotency-Key`. Денежные значения в базе
-хранятся в минорных единицах, а резервирование проверяет доступный остаток.
+После запуска:
 
-Публичная демонстрация: https://techm-b2b-prototype.bv78dg.chatgpt.site/
+- Web: http://localhost:5173
+- API gateway: http://localhost:8080
+- Keycloak: http://localhost:8081
+- MailHog: http://localhost:8025
+- Kafka UI (`tools`): http://localhost:8088
+- Grafana (`observability`): http://localhost:3000
+
+Каждый доменный сервис имеет собственный PostgreSQL, `/health/live`,
+`/health/ready`, `/v1/meta`, OpenAPI и единый RFC 9457 формат ошибок.
+
+## Сервисные границы
+
+| Сервис | Ответственность |
+|---|---|
+| Identity | компании, членство, роли и активный контекст |
+| Seller | онбординг, статус и подписка продавца |
+| Catalog | категории, Product/SKU, модерация, метаданные файлов |
+| Inventory | склады, предложения, цены, остатки и резервы |
+| Commerce | корзина, checkout Saga, Purchase и Order |
+| Finance | платежи, возвраты, ledger, payout и billing |
+| Trust | жалобы, решения и ограничения |
+| Integration | OAuth-клиенты, импорты, webhooks и event feed |
+| Search | проекции каталога в OpenSearch |
+| Notifications | in-app/email уведомления |
+
+## Основные гарантии
+
+- деньги хранятся целыми minor units, не `float`;
+- каждый корпоративный запрос проверяет `active_company_id`;
+- команды и consumers идемпотентны;
+- бизнес-изменение и Outbox записываются одной локальной транзакцией;
+- Order меняет состояние только через transition policy;
+- PostgreSQL сервисов остаётся source of truth.
+
+Архитектура, команды, известные ограничения и сценарий демонстрации находятся в
+[`docs/`](docs/README.md). Публичная demo-версия:
+https://techm-b2b-prototype.bv78dg.chatgpt.site/
