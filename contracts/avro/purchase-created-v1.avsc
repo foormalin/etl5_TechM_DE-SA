@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "PurchaseCreatedV1",
+  "namespace": "ru.techm.commerce.events",
+  "fields": [
+    {"name": "purchase_id", "type": "string"},
+    {"name": "company_id", "type": "string"},
+    {"name": "currency", "type": "string"},
+    {"name": "total_minor", "type": "long"},
+    {"name": "order_ids", "type": {"type": "array", "items": "string"}}
+  ]
+}

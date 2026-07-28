@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "DomainEventEnvelopeV1",
+  "namespace": "ru.techm.events",
+  "doc": "Common immutable envelope; payload-specific schemas use the same metadata.",
+  "fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "event_type", "type": "string"},
+    {"name": "event_version", "type": "int", "default": 1},
+    {"name": "occurred_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "producer", "type": "string"},
+    {"name": "aggregate_type", "type": "string"},
+    {"name": "aggregate_id", "type": "string"},
+    {"name": "company_id", "type": ["null", "string"], "default": null},
+    {"name": "correlation_id", "type": ["null", "string"], "default": null},
+    {"name": "causation_id", "type": ["null", "string"], "default": null},
+    {"name": "payload_json", "type": "string"}
+  ]
+}

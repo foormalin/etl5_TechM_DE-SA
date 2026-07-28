@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "StockReservedV1",
+  "namespace": "ru.techm.inventory.events",
+  "fields": [
+    {"name": "reservation_id", "type": "string"},
+    {"name": "listing_id", "type": "string"},
+    {"name": "company_id", "type": "string"},
+    {"name": "quantity", "type": "long"},
+    {"name": "expires_at", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}
