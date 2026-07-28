@@ -1,0 +1,1 @@
+{"name":"commerce","database":"commerce_db","owns":["Cart","CheckoutSession","Purchase","Order"],"publishes":["PurchaseCreated","OrderStatusChanged"]}
