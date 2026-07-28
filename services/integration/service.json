@@ -1,0 +1,1 @@
+{"name":"integration","database":"integration_db","owns":["ApiClient","ImportJob","WebhookSubscription","DeliveryAttempt"],"publishes":["ImportCompleted","WebhookDeliveryFailed"]}
