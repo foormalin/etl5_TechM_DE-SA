@@ -1,0 +1,1 @@
+{"name":"search","database":"opensearch","owns":["CatalogProjection"],"consumes":["ProductPublished","ProductUpdated","StockChanged","PriceChanged"]}
