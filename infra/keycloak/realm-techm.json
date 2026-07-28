@@ -1,0 +1,52 @@
+{
+  "realm": "techm",
+  "enabled": true,
+  "displayName": "TechM",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      {"name": "buyer"},
+      {"name": "seller"},
+      {"name": "techm_admin"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "techm-web",
+      "name": "TechM Web",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "protocol": "openid-connect",
+      "attributes": {"pkce.code.challenge.method": "S256"}
+    },
+    {
+      "clientId": "techm-api",
+      "name": "TechM API audience",
+      "publicClient": false,
+      "bearerOnly": true,
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "buyer-demo",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "buyer@techm.local",
+      "credentials": [{"type": "password", "value": "demo-change-me", "temporary": false}],
+      "realmRoles": ["buyer"]
+    },
+    {
+      "username": "seller-demo",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "seller@techm.local",
+      "credentials": [{"type": "password", "value": "demo-change-me", "temporary": false}],
+      "realmRoles": ["seller"]
+    }
+  ]
+}
