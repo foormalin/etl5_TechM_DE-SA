@@ -1,0 +1,1 @@
+{"name":"catalog","database":"catalog_db","owns":["Category","Product","SKU","FileMetadata"],"publishes":["ProductPublished","ProductUpdated"]}
