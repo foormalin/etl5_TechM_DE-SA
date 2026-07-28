@@ -1,0 +1,1 @@
+{"name":"seller","database":"seller_db","owns":["SellerProfile","SellerStatus","SubscriptionSnapshot"],"publishes":["SellerActivated","SellerSuspended"]}
