@@ -141,7 +141,7 @@ async function ensureDatabase(db) {
         db.prepare("INSERT OR IGNORE INTO products (id,name,category,code,kind,moderation_status,created_at) VALUES (?,?,?,?,?,'published',?)")
           .bind(id, name, category, code, kind, now),
         db.prepare("INSERT OR IGNORE INTO listings (id,product_id,seller_id,seller_name,price_minor,old_price_minor,stock,reserved,rating,status,version) VALUES (?,?,?,?,?,?,?,0,?,'active',1)")
-          .bind(id, id, `seller-${id}`, sellerName, price, oldPrice, stock, rating),
+          .bind(id, id, id === 1 ? "seller-itd" : `seller-${id}`, sellerName, price, oldPrice, stock, rating),
       ];
     });
     await db.batch([...companyQueries, ...productQueries]);
