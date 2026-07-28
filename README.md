@@ -23,6 +23,21 @@ Production-сборка:
 pnpm build
 ```
 
-Проект использует React, Vite и Lucide.
+Проект использует React, Vite, Lucide, Cloudflare Worker API и D1.
+
+## Backend API
+
+- `GET /api/health` — состояние API и базы данных;
+- `GET /api/session` — текущий пользователь, роль и компания;
+- `GET /api/catalog` — опубликованные предложения с актуальным остатком;
+- `GET /api/cart`, `PUT /api/cart/:listingId` — корпоративная корзина;
+- `POST /api/checkout` — идемпотентное создание закупки и заказов;
+- `POST /api/complaints` — обращение по подтверждённой закупке;
+- `PATCH /api/orders/:id` — переход заказа по разрешённой state machine;
+- `GET /api/admin/audit` — журнал действий для роли TechM.
+
+Роль передаётся заголовком `X-TechM-Role`: `buyer`, `seller` или `admin`.
+Checkout требует заголовок `Idempotency-Key`. Денежные значения в базе
+хранятся в минорных единицах, а резервирование проверяет доступный остаток.
 
 Публичная демонстрация: https://techm-b2b-prototype.bv78dg.chatgpt.site/
