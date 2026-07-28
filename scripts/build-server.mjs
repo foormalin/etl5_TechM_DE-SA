@@ -7,6 +7,7 @@ const dist = join(root, "dist");
 let html = await readFile(join(dist, "index.html"), "utf8");
 let css = "";
 let js = "";
+const backend = await readFile(join(root, "server", "backend-runtime.js"), "utf8");
 
 const stylesheetPattern = /<link rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/g;
 for (const match of [...html.matchAll(stylesheetPattern)]) {
@@ -26,12 +27,22 @@ const worker = `const page = ${JSON.stringify(html)};
 const styles = ${JSON.stringify(css)};
 const application = ${JSON.stringify(js)};
 
+${backend}
+
 export default {
   async fetch(request, env) {
+    const path = new URL(request.url).pathname;
+    if (path.startsWith("/api/")) {
+      try {
+        return await handleApi(request, env);
+      } catch (error) {
+        console.error("TechM API error", error);
+        return apiError(500, "INTERNAL_ERROR", "Внутренняя ошибка сервиса");
+      }
+    }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method Not Allowed", { status: 405 });
     }
-    const path = new URL(request.url).pathname;
     if (path === "/og.png" && env?.ASSETS?.fetch) {
       return env.ASSETS.fetch(request);
     }
@@ -55,9 +66,15 @@ export default {
 
 await mkdir(join(dist, "server"), { recursive: true });
 await mkdir(join(dist, ".openai"), { recursive: true });
+await mkdir(join(dist, ".openai", "drizzle"), { recursive: true });
 await writeFile(join(dist, "server", "index.js"), worker, "utf8");
 await writeFile(
   join(dist, ".openai", "hosting.json"),
   await readFile(join(root, ".openai", "hosting.json"), "utf8"),
+  "utf8"
+);
+await writeFile(
+  join(dist, ".openai", "drizzle", "0000_techm_core.sql"),
+  await readFile(join(root, ".openai", "drizzle", "0000_techm_core.sql"), "utf8"),
   "utf8"
 );
