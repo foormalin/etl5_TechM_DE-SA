@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity, AlertTriangle, ArrowLeft, ArrowRight, BadgeCheck, BarChart3,
@@ -11,7 +11,7 @@ import {
 import "./styles.css";
 
 const money = n => new Intl.NumberFormat("ru-RU").format(n) + " ₽";
-const products = [
+const initialProducts = [
   {id:1,name:"Сервер Dell PowerEdge R760",category:"Серверы",seller:"IT Distribution",rating:"4.9",stock:18,price:782400,old:815000,code:"DELL-R760-4410Y",kind:"server",status:"В наличии"},
   {id:2,name:"Коммутатор Cisco C9300-48P",category:"Сетевое оборудование",seller:"NetSystems",rating:"4.8",stock:42,price:526900,code:"C9300-48P-A",kind:"switch",status:"В наличии"},
   {id:3,name:"ThinkPad X1 Carbon Gen 12",category:"Ноутбуки",seller:"ProDevice",rating:"4.7",stock:63,price:214500,old:229900,code:"21KC00AERT",kind:"laptop",status:"В наличии"},
@@ -73,6 +73,8 @@ function PageHead({eyebrow,title,subtitle,action,actionIcon:Icon=Plus,onAction})
 function App() {
   const [role,setRole] = useState("buyer");
   const [view,setView] = useState("dashboard");
+  const [products,setProducts] = useState(initialProducts);
+  const [apiOnline,setApiOnline] = useState(false);
   const [query,setQuery] = useState("");
   const [cart,setCart] = useState({1:2,3:5});
   const [favorites,setFavorites] = useState([2,4]);
@@ -88,12 +90,55 @@ function App() {
   const total = cartProducts.reduce((s,p)=>s+p.price*cart[p.id],0);
   const filtered = useMemo(()=>products.filter(p=>(p.name+p.category+p.seller+p.code).toLowerCase().includes(query.toLowerCase())),[query]);
   const notify = msg => {setToast(msg);setTimeout(()=>setToast(""),2200)};
+  const api = async (path,options={}) => {
+    const response = await fetch(path,{
+      ...options,
+      headers:{"content-type":"application/json","x-techm-role":role,...(options.headers||{})}
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error?.message||"Ошибка API");
+    return data;
+  };
+  useEffect(()=>{
+    let active=true;
+    Promise.all([
+      fetch("/api/health").then(r=>r.ok?r.json():Promise.reject()),
+      fetch("/api/catalog").then(r=>r.ok?r.json():Promise.reject())
+    ]).then(async ([,catalog])=>{
+      if(!active)return;
+      setApiOnline(true);
+      if(catalog.items?.length)setProducts(catalog.items);
+      await Promise.all(Object.entries(cart).map(([id,quantity])=>
+        fetch(`/api/cart/${id}`,{method:"PUT",headers:{"content-type":"application/json","x-techm-role":"buyer"},body:JSON.stringify({quantity})})
+      ));
+    }).catch(()=>active&&setApiOnline(false));
+    return()=>{active=false};
+  },[]);
   const navigate = next => {setView(next);setMobileNav(false);window.scrollTo({top:0,behavior:"smooth"})};
   const switchRole = next => {
     setRole(next);
     navigate(next==="buyer"?"dashboard":next==="seller"?"seller-dashboard":"admin-dashboard");
   };
-  const add = id => {setCart(c=>({...c,[id]:(c[id]||0)+1}));notify("Добавлено в корпоративную корзину")};
+  const add = id => {
+    const quantity=(cart[id]||0)+1;
+    setCart(c=>({...c,[id]:quantity}));
+    api(`/api/cart/${id}`,{method:"PUT",body:JSON.stringify({quantity})}).catch(()=>setApiOnline(false));
+    notify("Добавлено в корпоративную корзину");
+  };
+  const completeCheckout = async () => {
+    try {
+      const result=await api("/api/checkout",{
+        method:"POST",
+        headers:{"idempotency-key":crypto.randomUUID()},
+        body:JSON.stringify({paymentMethod:"techm",deliveryMethod:"seller"})
+      });
+      notify(`Закупка ${result.purchaseId} создана`);
+      setCart({});
+      navigate("purchases");
+    } catch(error) {
+      notify(error.message);
+    }
+  };
   const toggleFavorite = id => setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[...f,id]);
   const titleMap = {buyer:"Покупатель",seller:"Продавец",admin:"TechM"};
 
@@ -115,7 +160,7 @@ function App() {
       <header className="topbar">
         <button className="mobile-trigger" onClick={()=>setMobileNav(true)} aria-label="Открыть меню"><Menu/></button>
         <div className="global-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&role==="buyer"&&navigate("catalog")} placeholder={role==="buyer"?"Поиск по каталогу и артикулу":"Поиск по разделу"}/><kbd>⌘ K</kbd></div>
-        <div className="top-actions"><span className="context"><Building2/> {role==="admin"?"TechM Operations":role==="seller"?"IT Distribution":"ООО «Вектор»"}</span><button aria-label="Уведомления"><Bell/><i/></button><button className="avatar small">АК</button></div>
+        <div className="top-actions"><span className={`api-pill ${apiOnline?"online":"offline"}`}><i/>{apiOnline?"API подключён":"Демо-режим"}</span><span className="context"><Building2/> {role==="admin"?"TechM Operations":role==="seller"?"IT Distribution":"ООО «Вектор»"}</span><button aria-label="Уведомления"><Bell/><i/></button><button className="avatar small">АК</button></div>
       </header>
 
       <main className="content">
@@ -124,7 +169,7 @@ function App() {
         {view==="product"&&<ProductPage product={selected} add={add} toggleFavorite={toggleFavorite} favorite={favorites.includes(selected.id)} back={()=>navigate("catalog")}/>}
         {view==="favorites"&&<ProductCollection title="Избранное" eyebrow="СОХРАНЁННЫЕ ПРЕДЛОЖЕНИЯ" subtitle={`${favorites.length} предложения для быстрого доступа`} products={products.filter(p=>favorites.includes(p.id))} add={add} open={p=>{setSelected(p);navigate("product")}} emptyAction={()=>navigate("catalog")}/>}
         {view==="cart"&&<Cart cart={cart} setCart={setCart} products={cartProducts} total={total} next={()=>{setCheckoutStep(1);navigate("checkout")}}/>}
-        {view==="checkout"&&<Checkout step={checkoutStep} setStep={setCheckoutStep} products={cartProducts} total={total} finish={()=>{notify("Закупка TM-2481 создана");setCart({});navigate("purchases")}}/>}
+        {view==="checkout"&&<Checkout step={checkoutStep} setStep={setCheckoutStep} products={cartProducts} total={total} finish={completeCheckout}/>}
         {view==="purchases"&&<Purchases navigate={navigate}/>}
         {view==="purchase-detail"&&<PurchaseDetail back={()=>navigate("purchases")}/>}
         {view==="documents"&&<Documents notify={notify}/>}
