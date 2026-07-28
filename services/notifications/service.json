@@ -1,0 +1,1 @@
+{"name":"notifications","database":"notification_db","owns":["Notification","DeliveryAttempt"],"consumes":["PurchaseCreated","OrderStatusChanged","ComplaintDecided"]}
