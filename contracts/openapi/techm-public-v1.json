@@ -1,0 +1,97 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TechM Public API",
+    "version": "1.0.0",
+    "description": "Stable public baseline for the TechM demo and target services."
+  },
+  "servers": [{"url": "/api"}],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "responses": {"200": {"description": "Runtime is healthy"}}
+      }
+    },
+    "/catalog": {
+      "get": {
+        "operationId": "listCatalog",
+        "responses": {"200": {"description": "Published available listings"}}
+      }
+    },
+    "/cart": {
+      "get": {
+        "operationId": "getCart",
+        "parameters": [{"$ref": "#/components/parameters/ActiveCompany"}],
+        "responses": {
+          "200": {"description": "Company cart"},
+          "400": {"$ref": "#/components/responses/Problem"}
+        }
+      }
+    },
+    "/checkout": {
+      "post": {
+        "operationId": "checkout",
+        "parameters": [
+          {"$ref": "#/components/parameters/ActiveCompany"},
+          {"$ref": "#/components/parameters/IdempotencyKey"}
+        ],
+        "responses": {
+          "201": {"description": "Purchase and seller orders created"},
+          "409": {"$ref": "#/components/responses/Problem"}
+        }
+      }
+    },
+    "/complaints": {
+      "post": {
+        "operationId": "createComplaint",
+        "parameters": [{"$ref": "#/components/parameters/ActiveCompany"}],
+        "responses": {
+          "201": {"description": "Complaint created"},
+          "403": {"$ref": "#/components/responses/Problem"}
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "ActiveCompany": {
+        "name": "X-Active-Company-ID",
+        "in": "header",
+        "required": true,
+        "schema": {"type": "string"}
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {"type": "string", "minLength": 8, "maxLength": 128}
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "required": ["type", "title", "status", "code"],
+        "properties": {
+          "type": {"type": "string", "format": "uri"},
+          "title": {"type": "string"},
+          "status": {"type": "integer"},
+          "detail": {"type": "string"},
+          "instance": {"type": "string"},
+          "code": {"type": "string"},
+          "request_id": {"type": "string"}
+        }
+      }
+    },
+    "responses": {
+      "Problem": {
+        "description": "RFC 9457 problem details",
+        "content": {
+          "application/problem+json": {
+            "schema": {"$ref": "#/components/schemas/Problem"}
+          }
+        }
+      }
+    }
+  }
+}
