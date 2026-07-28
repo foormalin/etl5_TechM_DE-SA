@@ -1,0 +1,1 @@
+{"name":"trust","database":"trust_db","owns":["Complaint","Evidence","Decision","Penalty"],"publishes":["ComplaintCreated","ComplaintDecided"]}
