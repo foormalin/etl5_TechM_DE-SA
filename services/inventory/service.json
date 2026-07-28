@@ -1,0 +1,1 @@
+{"name":"inventory","database":"inventory_db","owns":["Warehouse","Listing","Price","Stock","Reservation"],"publishes":["StockChanged","PriceChanged","StockReserved"]}
