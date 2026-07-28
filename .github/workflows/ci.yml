@@ -24,6 +24,7 @@ jobs:
       - run: pnpm check
       - run: pnpm build
       - run: pnpm test:smoke
+      - run: pnpm test:local
 
   python-template:
     runs-on: ubuntu-latest
