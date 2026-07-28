@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: techm-services
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - identity:8000
+          - seller:8000
+          - catalog:8000
+          - inventory:8000
+          - commerce:8000
+          - finance:8000
+          - trust:8000
+          - integration:8000
+          - search:8000
+          - notifications:8000
