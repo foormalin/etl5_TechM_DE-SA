@@ -14,6 +14,10 @@ pnpm install
 pnpm dev
 ```
 
+На Windows можно просто запустить `START_LOCAL.cmd`. Откроется единый локальный
+контур на http://localhost:5173: Vite frontend и in-memory demo API. Данные
+сбрасываются после остановки процесса; облачный D1 для этого режима не нужен.
+
 Проверка и production-сборка:
 
 ```bash

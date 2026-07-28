@@ -26,3 +26,4 @@ compose-down:
 
 smoke:
 	node tests/smoke/demo-worker.mjs
+	node tests/smoke/local-api.mjs

@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "node scripts/dev-local.mjs",
+    "dev:web": "vite --host 0.0.0.0",
     "build": "vite build && node scripts/build-server.mjs",
     "check": "node tests/contract/validate-contracts.mjs && node --test tests/unit/*.test.mjs",
     "test": "node --test tests/unit/*.test.mjs",
     "test:contracts": "node tests/contract/validate-contracts.mjs",
-    "test:smoke": "node tests/smoke/demo-worker.mjs"
+    "test:smoke": "node tests/smoke/demo-worker.mjs",
+    "test:local": "node tests/smoke/local-api.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
