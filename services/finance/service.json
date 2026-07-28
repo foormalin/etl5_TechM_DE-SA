@@ -1,0 +1,1 @@
+{"name":"finance","database":"finance_db","owns":["Payment","Refund","LedgerEntry","Payout","BillingPeriod"],"publishes":["PaymentCaptured","RefundCompleted","PayoutCompleted"]}
